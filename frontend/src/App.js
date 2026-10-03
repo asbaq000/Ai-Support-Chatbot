@@ -1,183 +1,121 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import './App.css';
+import { demoReply, topics, articles } from './content';
 
-const SendIcon = () => (
-  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
-);
-const BotIcon = () => (
-    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>
-);
-const SunIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M12 12a5 5 0 100-10 5 5 0 000 10z" /></svg>
-);
-const MoonIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" /></svg>
-);
+export function Icon({ name, size = 20 }) {
+  const paths = {
+    spark: 'm12 3 2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5L12 3Z',
+    chat: 'M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7A8.4 8.4 0 0 1 4 11.5a8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9h.5a8.5 8.5 0 0 1 8 8v.5Z',
+    book: 'M3 3h6a3 3 0 0 1 3 3v15a3 3 0 0 0-3-3H3V3Zm9 3a3 3 0 0 1 3-3h6v15h-6a3 3 0 0 0-3 3',
+    arrow: 'M7 17 17 7M7 7h10v10', send: 'm5 12 7-7 7 7M12 5v14', plus: 'M12 5v14M5 12h14',
+    box: 'm3 7 9-4 9 4-9 4-9-4Zm0 0v10l9 4 9-4V7M12 11v10M7.5 5l9 4',
+    return: 'M9 4 4 9l5 5M4 9h9a6 6 0 0 1 0 12h-2', person: 'M20 21v-2a8 8 0 0 0-16 0v2M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0Z',
+    download: 'M12 3v12m-5-5 5 5 5-5M5 16v5h14v-5', moon: 'M21 13a9 9 0 0 1-10-10 9 9 0 1 0 10 10Z',
+    sun: 'M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1 1m12 12 1 1M5 19l1-1M18 6l1-1M16 12a4 4 0 1 1-8 0 4 4 0 0 1 8 0Z',
+    close: 'm6 6 12 12M6 18 18 6', shield: 'm12 3 8 4v5c0 5-8 9-8 9s-8-4-8-9V7l8-4Z',
+    search: 'M21 21l-5-5M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Z', clock: 'M12 8v4l3 2M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0Z',
+  };
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={paths[name] || paths.spark} /></svg>;
+}
+const greeting = () => ({ role: 'model', text: 'Hi there! I’m Assistly, your support companion. Let’s make your day a little easier. What can I help you with?', time: new Date().toISOString() });
+const read = (key, fallback) => { try { return JSON.parse(localStorage.getItem(key)) ?? fallback; } catch { return fallback; } };
+const save = (key, value) => { try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* Chat remains usable without storage. */ } };
+const API = process.env.REACT_APP_API_URL || '';
 
-const getSuggestedReplies = (messages) => {
-    const lastMessage = messages[messages.length - 1]?.text.toLowerCase() || '';
-    if (lastMessage.includes('order') || lastMessage.includes('track')) {
-        return ["What's the status of my order?", "Can I get a tracking number?", "I have an issue with an order."];
-    }
-    if (lastMessage.includes('hour') || lastMessage.includes('open')) {
-        return ["What are your business hours?", "Are you open on weekends?", "Contact support"];
-    }
-    if (lastMessage.includes('agent') || lastMessage.includes('human') || lastMessage.includes('speak')) {
-        return ["I'd like to speak to a human.", "Transfer me to a live agent.", "What's the wait time?"];
-    }
-    return ["What are your hours?", "Track my order", "I need to speak to an agent"];
-};
-
-const ThemeToggle = ({ theme, setTheme }) => {
-  const toggleTheme = () => setTheme(theme === 'dark' ? 'light' : 'dark');
-  return (
-    <button onClick={toggleTheme} className="p-2 rounded-full text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-dark-primary focus:outline-none transition-all duration-300">
-        <div className="relative w-6 h-6">
-            <div className={`absolute transition-all duration-300 transform ${theme === 'dark' ? 'rotate-0 opacity-0' : 'rotate-90 opacity-100'}`}><SunIcon /></div>
-            <div className={`absolute transition-all duration-300 transform ${theme === 'dark' ? 'rotate-0 opacity-100' : '-rotate-90 opacity-0'}`}><MoonIcon /></div>
-        </div>
-    </button>
-  );
-};
-
-const WelcomeScreen = ({ onStartNew, onContinue }) => (
-    <div className="absolute inset-0 bg-white dark:bg-dark-bg bg-opacity-90 dark:bg-opacity-90 backdrop-blur-sm flex items-center justify-center z-20">
-        <div className="text-center p-8 bg-white dark:bg-dark-card rounded-2xl shadow-2xl max-w-sm mx-auto">
-            <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-4">Welcome Back!</h2>
-            <p className="text-gray-600 dark:text-dark-subtext mb-8">We found a previous conversation. Would you like to continue or start a new one?</p>
-            <div className="flex justify-center gap-4">
-                <button onClick={onContinue} className="px-6 py-2 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 transition-all">Continue</button>
-                <button onClick={onStartNew} className="px-6 py-2 bg-gray-200 dark:bg-dark-primary text-gray-800 dark:text-white font-semibold rounded-lg hover:bg-gray-300 dark:hover:bg-opacity-80 transition-all">Start New</button>
-            </div>
-        </div>
-    </div>
-);
-
-const App = () => {
-    const [messages, setMessages] = useState([]);
-    const [input, setInput] = useState('');
-    const [isTyping, setIsTyping] = useState(false);
-    const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'light');
-    const [showWelcome, setShowWelcome] = useState(false);
-    const messagesEndRef = useRef(null);
-    const suggestedReplies = getSuggestedReplies(messages);
-
-    useEffect(() => {
-        if (theme === 'dark') {
-            document.documentElement.classList.add('dark');
-        } else {
-            document.documentElement.classList.remove('dark');
-        }
-        localStorage.setItem('theme', theme);
-    }, [theme]);
-
-    useEffect(() => {
-        const savedMessages = localStorage.getItem('chat_history');
-        if (savedMessages && JSON.parse(savedMessages).length > 1) { 
-            setShowWelcome(true);
-        } else {
-            setMessages([{ text: "Hello! I'm your AI assistant. How can I help you today?", isUser: false, timestamp: new Date() }]);
-        }
-    }, []);
-
-    useEffect(() => {
-        if (messages.length > 0) {
-            localStorage.setItem('chat_history', JSON.stringify(messages));
-        }
-    }, [messages]);
-
-    useEffect(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, [messages, isTyping]);
-
-    const handleContinue = () => {
-        const savedMessages = JSON.parse(localStorage.getItem('chat_history'));
-        const parsedMessages = savedMessages.map(msg => ({ ...msg, timestamp: new Date(msg.timestamp) }));
-        setMessages(parsedMessages);
-        setShowWelcome(false);
+export default function App() {
+  const [messages, setMessages] = useState(() => {
+    const stored = read('assistly.messages', []);
+    return Array.isArray(stored) && stored.length && stored.every(m => ['user', 'model'].includes(m.role) && typeof m.text === 'string' && !isNaN(Date.parse(m.time))) ? stored.slice(-60) : [greeting()];
+  });
+  const [theme, setTheme] = useState(() => read('assistly.theme', 'light') === 'dark' ? 'dark' : 'light');
+  const [input, setInput] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [page, setPage] = useState('chat');
+  const [mode, setMode] = useState('demo');
+  const [notice, setNotice] = useState('');
+  const [search, setSearch] = useState('');
+  const [article, setArticle] = useState(null);
+  const [project, setProject] = useState(false);
+  const end = useRef(null), composer = useRef(null), locked = useRef(false), dialog = useRef(null), previousFocus = useRef(null);
+  useEffect(() => { document.documentElement.dataset.theme = theme; save('assistly.theme', theme); }, [theme]);
+  useEffect(() => { save('assistly.messages', messages); }, [messages]);
+  useEffect(() => { if (messages.length > 1 || busy) end.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }, [messages, busy]);
+  useEffect(() => {
+    if (window.__ASSISTLY_PREVIEW__ || window.location.protocol === 'file:') return;
+    const controller = new AbortController(), timeout = setTimeout(() => controller.abort(), 4000);
+    fetch(`${API}/api/health`, { signal: controller.signal }).then(r => r.ok ? r.json() : null).then(data => { if (data?.mode === 'live') setMode('live'); }).catch(() => {}).finally(() => clearTimeout(timeout));
+    return () => { clearTimeout(timeout); controller.abort(); };
+  }, []);
+  useEffect(() => {
+    if (!article && !project) return;
+    previousFocus.current = document.activeElement; dialog.current?.focus();
+    const keydown = event => {
+      if (event.key === 'Escape') { setArticle(null); setProject(false); }
+      if (event.key === 'Tab') {
+        const nodes = dialog.current?.querySelectorAll('button, a[href], input, [tabindex="0"]');
+        if (!nodes?.length) return;
+        const first = nodes[0], last = nodes[nodes.length - 1];
+        if (event.shiftKey && [first, dialog.current].includes(document.activeElement)) { event.preventDefault(); last.focus(); }
+        else if (!event.shiftKey && [last, dialog.current].includes(document.activeElement)) { event.preventDefault(); first.focus(); }
+      }
     };
-
-    const handleStartNew = () => {
-        setMessages([{ text: "Hello! I'm your AI assistant. How can I help you today?", isUser: false, timestamp: new Date() }]);
-        localStorage.removeItem('chat_history');
-        setShowWelcome(false);
-    };
-
-    const handleSend = async (messageText = input) => {
-        if (!messageText.trim()) return;
-        const userMessage = { text: messageText, isUser: true, timestamp: new Date() };
-        setMessages(prev => [...prev, userMessage]);
-        setInput('');
-        setIsTyping(true);
-
+    document.addEventListener('keydown', keydown);
+    return () => { document.removeEventListener('keydown', keydown); previousFocus.current?.focus(); };
+  }, [article, project]);
+  async function send(text = input, retry = false) {
+    text = text.trim();
+    if (!text || locked.current) return;
+    locked.current = true; setBusy(true); setNotice(''); setPage('chat'); setInput('');
+    const history = messages.slice(1, retry ? -1 : undefined).slice(-20).map(m => ({ role: m.role, text: m.text }));
+    if (!retry) setMessages(prev => [...prev, { role: 'user', text, time: new Date().toISOString() }]);
+    try {
+      let answer;
+      if (mode === 'live') {
+        const controller = new AbortController(), timeout = setTimeout(() => controller.abort(), 35000);
         try {
-            const response = await fetch('http://127.0.0.1:5000/api/chat', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message: messageText }),
-            });
-            if (!response.ok) throw new Error('Network response was not ok');
-            const data = await response.json();
-            const botMessage = { text: data.response, isUser: false, timestamp: new Date() };
-            setMessages(prev => [...prev, botMessage]);
-        } catch (error) {
-            console.error('Error fetching bot response:', error);
-            const errorMessage = { text: "I'm sorry, I'm having trouble connecting. Please try again later.", isUser: false, timestamp: new Date() };
-            setMessages(prev => [...prev, errorMessage]);
-        } finally {
-            setIsTyping(false);
-        }
-    };
-
-  return (
-    <div className="flex flex-col h-screen bg-gray-50 dark:bg-dark-bg font-sans">
-        {showWelcome && <WelcomeScreen onContinue={handleContinue} onStartNew={handleStartNew} />}
-        <header className="bg-white/70 dark:bg-dark-card/70 backdrop-blur-lg border-b border-gray-200 dark:border-dark-primary p-4 shadow-sm z-10">
-            <div className="max-w-4xl mx-auto flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center flex-shrink-0"><BotIcon/></div>
-                    <div>
-                        <h1 className="text-lg font-bold text-gray-800 dark:text-white">AI Support</h1>
-                        <p className="text-xs text-green-500 flex items-center"><span className="relative flex h-2 w-2 mr-1.5"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span><span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span></span>Online</p>
-                    </div>
-                </div>
-                <ThemeToggle theme={theme} setTheme={setTheme} />
-            </div>
-        </header>
-
-        <main className="flex-1 overflow-y-auto p-6 space-y-6"><div className="max-w-4xl mx-auto">
-            {messages.map((msg, index) => (
-              <div key={index} className={`flex items-end gap-2 ${msg.isUser ? 'justify-end' : 'justify-start'}`}>
-                {!msg.isUser && (<div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center flex-shrink-0"><BotIcon/></div>)}
-                <div className={`rounded-xl p-3 max-w-sm lg:max-w-md shadow-md ${msg.isUser ? 'bg-blue-600 text-white rounded-br-none' : 'bg-white dark:bg-dark-card text-gray-800 dark:text-gray-200 rounded-bl-none'}`}>
-                  <p className="text-sm">{msg.text}</p>
-                  <span className="text-xs opacity-60 dark:opacity-40 mt-2 block text-right">{msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                </div>
-              </div>
-            ))}
-            {isTyping && (
-                 <div className="flex items-end gap-2">
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center flex-shrink-0"><BotIcon /></div>
-                    <div className="bg-white dark:bg-dark-card rounded-xl rounded-bl-none p-3 shadow-md">
-                        <div className="flex items-center space-x-1"><div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" /><div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce [animation-delay:0.2s]" /><div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce [animation-delay:0.4s]" /></div>
-                    </div>
-                </div>
-            )}
-            <div ref={messagesEndRef} />
-        </div></main>
-
-        <footer className="bg-white/80 dark:bg-dark-card/80 backdrop-blur-lg border-t border-gray-200 dark:border-dark-primary p-4">
-            <div className="max-w-4xl mx-auto">
-                <div className="flex flex-wrap gap-2 mb-3">
-                    {suggestedReplies.map((text, i) => <button key={i} onClick={() => handleSend(text)} className="bg-gray-100 dark:bg-dark-primary border border-gray-200 dark:border-gray-700 text-sm text-blue-600 dark:text-blue-400 py-1.5 px-4 rounded-full hover:bg-gray-200 dark:hover:bg-opacity-80 transition-all">{text}</button>)}
-                </div>
-                <div className="flex items-center bg-gray-100 dark:bg-dark-bg rounded-full p-1 shadow-inner">
-                    <input type="text" value={input} onChange={(e) => setInput(e.target.value)} onKeyPress={(e) => e.key === 'Enter' && handleSend()} placeholder="Type your message..." className="flex-1 bg-transparent border-0 py-2 px-4 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-0" />
-                    <button onClick={() => handleSend()} disabled={!input.trim()} className="bg-blue-600 text-white rounded-full p-2.5 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-dark-card transition-all disabled:bg-gray-400 dark:disabled:bg-gray-600 disabled:cursor-not-allowed"><SendIcon /></button>
-                </div>
-            </div>
-        </footer>
+          const res = await fetch(`${API}/api/chat`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: text, history }), signal: controller.signal });
+          const data = await res.json();
+          if (!res.ok || typeof data.response !== 'string' || !data.response.trim()) throw new Error('unavailable');
+          answer = data.response;
+        } finally { clearTimeout(timeout); }
+      } else { await new Promise(resolve => setTimeout(resolve, 550)); answer = demoReply(text, history); }
+      setMessages(prev => [...prev, { role: 'model', text: answer, time: new Date().toISOString() }]);
+    } catch { setNotice('The AI service is unavailable. Your message is saved. Try again, or continue in sample demo mode.'); }
+    finally { setBusy(false); locked.current = false; composer.current?.focus(); }
+  }
+  function exportChat() {
+    const transcript = `ASSISTLY • ${mode === 'demo' ? 'SAMPLE DEMO' : 'AI SUPPORT'}\nExported ${new Date().toLocaleString()}\n\n` + messages.map(m => `${m.role === 'user' ? 'You' : 'Assistly'} • ${new Date(m.time).toLocaleTimeString()}\n${m.text}`).join('\n\n');
+    const url = URL.createObjectURL(new Blob([transcript], { type: 'text/plain;charset=utf-8' }));
+    const a = document.createElement('a'); a.href = url; a.download = 'assistly-conversation.txt'; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+  const starters = [{ icon: 'box', label: 'Track an order', text: 'Track my order' }, { icon: 'return', label: 'Returns & refunds', text: 'What is your return policy?' }, { icon: 'person', label: 'Talk to support', text: 'I need to speak to a human' }];
+  const filtered = articles.filter(a => `${a.title} ${a.body}`.toLowerCase().includes(search.toLowerCase()));
+  return <div className="app-shell">
+    <aside className="sidebar" aria-label="Workspace navigation">
+      <a className="brand" href="#chat" onClick={() => setPage('chat')}><span className="brand-icon"><Icon name="spark" size={23} /></span>assistly<span className="brand-period">.</span></a>
+      <div className="workspace-label">YOUR SUPPORT SPACE</div>
+      <nav aria-label="Main navigation"><button className={`nav-item ${page === 'chat' ? 'active' : ''}`} onClick={() => setPage('chat')}><Icon name="chat" />AI assistant <span className="nav-count">1</span></button><button className={`nav-item ${page === 'help' ? 'active' : ''}`} onClick={() => setPage('help')}><Icon name="book" />Help center <Icon name="arrow" size={16} /></button></nav>
+      <button className="new-chat" disabled={busy || messages.length === 1} onClick={() => { setMessages([greeting()]); setNotice(''); setPage('chat'); composer.current?.focus(); }}><Icon name="plus" size={18} />New conversation</button>
+      <div className="sidebar-bottom"><div className="demo-card"><span className="eyebrow"><span className="dot" />PORTFOLIO PROJECT</span><h3>Small details.<br />Better support.</h3><p>A thoughtful customer experience, built for the web.</p><button onClick={() => setProject(true)}>Explore the project <Icon name="arrow" size={16} /></button></div><div className="workspace-owner"><div className="owner-avatar">A</div><div><strong>Assistly workspace</strong><span>Customer experience demo</span></div></div></div>
+    </aside>
+    <div className="main-shell">
+      <header className="topbar"><div className="breadcrumb">Workspace <span>/</span> <strong>{page === 'chat' ? 'AI assistant' : 'Help center'}</strong></div><div className="top-actions"><span className="mode-pill"><span className="dot" />{mode === 'demo' ? 'Sample demo' : 'AI configured'}</span><button className="icon-button" aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} theme`} onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}><Icon name={theme === 'light' ? 'moon' : 'sun'} /></button><span className="top-avatar">JD</span></div></header>
+      <main className="content-layout">
+        <section className="primary-content"><div className="page-heading"><div className="eyebrow">A LITTLE HELP GOES A LONG WAY</div><h1>{page === 'chat' ? <>Support, made <em>simple.</em></> : <>Answers, within <em>reach.</em></>}</h1><p>{page === 'chat' ? 'Good questions deserve great answers. Let’s find yours.' : 'A few helpful reads to get you on your way.'}</p></div>
+          {page === 'chat' ? <section className="chat-card" aria-label="Support conversation">
+            <div className="chat-header"><div className="assistant-avatar"><Icon name="spark" size={23} /><span /></div><div className="assistant-title"><h2>Assistly assistant <span>AI</span></h2><p>{mode === 'demo' ? 'Here to help · Sample support experience' : 'Here to help · Powered by Gemini'}</p></div><button className="icon-button mobile-reset" aria-label="Start a new conversation" disabled={busy || messages.length === 1} onClick={() => { setMessages([greeting()]); setNotice(''); }}><Icon name="plus" size={18} /></button><button className="icon-button" aria-label="Download conversation" onClick={exportChat}><Icon name="download" size={19} /></button></div>
+            <div className="chat-scroll" role="log" aria-label="Messages" aria-live="polite" aria-relevant="additions"><div className="date-divider"><span>YOUR CONVERSATION</span></div>
+              {messages.map((m, i) => <div key={i} className={`message-row ${m.role === 'user' ? 'user-message' : ''}`}>{m.role === 'model' && <div className="message-avatar"><Icon name="spark" size={16} /></div>}<div className="message-content"><div className="message-meta">{m.role === 'user' ? 'You' : 'Assistly'}<time dateTime={m.time}>{new Date(m.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</time></div><div className="message-bubble">{m.text}</div></div></div>)}
+              {messages.length === 1 && <div className="starter-section"><p>Not sure where to start? Try one of these.</p><div className="starter-grid">{starters.map(s => <button key={s.label} disabled={busy} onClick={() => send(s.text)}><Icon name={s.icon} size={22} /><span>{s.label}</span><Icon name="arrow" size={15} /></button>)}</div><div className="welcome-note"><Icon name="shield" size={15} />A friendly space for every question.</div></div>}
+              {busy && <div className="typing" role="status"><span /><span /><span /><span className="sr-only">Assistly is thinking</span></div>}<div ref={end} /></div>
+            {notice && <div className="error-notice" role="alert">{notice}<div><button onClick={() => send(messages.filter(m => m.role === 'user').at(-1)?.text || '', true)}>Try again</button><button onClick={() => { setMode('demo'); setNotice(''); }}>Use sample demo</button></div></div>}
+            <div className="composer-area">{messages.length > 1 && <div className="followups">{starters.map(s => <button key={s.label} onClick={() => send(s.text)} disabled={busy}>{s.label}</button>)}</div>}<form className="composer" onSubmit={e => { e.preventDefault(); send(); }}><label htmlFor="message" className="sr-only">Your message</label><input ref={composer} id="message" placeholder="Ask a question. We’re all ears." value={input} onChange={e => setInput(e.target.value)} maxLength={2000} disabled={busy} autoComplete="off" /><button type="submit" aria-label="Send message" disabled={busy || !input.trim()}><Icon name="send" size={19} /></button></form><div className="composer-caption"><span><Icon name="spark" size={12} />{mode === 'demo' ? 'Sample replies · No real orders or agent transfers' : 'AI replies may be inaccurate. Verify important details.'}</span><span>Enter to send</span></div></div>
+          </section> : <section className="help-card"><label className="search-field"><Icon name="search" /><input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search sample help articles" aria-label="Search help articles" /></label><div className="article-list">{filtered.map(a => <button key={a.title} onClick={() => setArticle(a)}><span><Icon name={a.icon} /><strong>{a.title}</strong><small>{a.summary}</small></span><Icon name="arrow" /></button>)}{!filtered.length && <p className="empty-state">No articles found. Try “shipping”, “returns”, or “support”.</p>}</div><p className="help-disclaimer">These articles describe a fictional store for demonstration purposes.</p></section>}
+          <div className="page-footer"><span>Thoughtfully built. Effortlessly helpful.</span><span>ASSISTLY / CUSTOMER EXPERIENCE</span></div>
+        </section>
+        <aside className="insights" aria-label="Support resources"><div className="help-intro"><span className="line-icon"><Icon name="book" size={24} /></span><h2>A good place to start.</h2><p>Find a quick answer, or let Assistly guide you through it.</p></div><div className="topic-list">{topics.map((t, i) => <button disabled={busy} key={t.title} onClick={() => send(t.prompt)}><span className="topic-number">0{i + 1}</span><span><strong>{t.title}</strong><small>{t.subtitle}</small></span><Icon name="arrow" size={17} /></button>)}</div><div className="human-card"><div className="human-icon"><Icon name="person" /></div><h3>Some things need<br />a human touch.</h3><p>Find out how to reach the support team.</p><button disabled={busy} onClick={() => send('I need to speak to a human')}>Contact options <Icon name="arrow" size={16} /></button><span><Icon name="clock" size={13} />Sample hours: Mon–Fri, 9–6 UTC</span></div><div className="context-note"><Icon name="shield" size={17} /><p>{mode === 'demo' ? 'This is a portfolio demo. Use fictional details when trying it out.' : 'Messages are sent to the AI provider. Avoid sharing sensitive information.'}</p></div></aside>
+      </main>
     </div>
-  );
-};
-
-export default App;
+    {(article || project) && <div className="modal-backdrop" onClick={e => { if (e.target === e.currentTarget) { setArticle(null); setProject(false); } }}><section className="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title" tabIndex={-1} ref={dialog}><button className="icon-button modal-close" aria-label="Close dialog" onClick={() => { setArticle(null); setProject(false); }}><Icon name="close" /></button><span className="eyebrow">{article ? 'SAMPLE HELP CENTER' : 'DESIGN & DEVELOPMENT'}</span><h2 id="modal-title">{article ? article.title : 'Better support starts with a better experience.'}</h2>{article ? <><p className="article-body">{article.body}</p><button className="primary-button" onClick={() => { const prompt = article.prompt; setArticle(null); send(prompt); }}>Ask Assistly about this <Icon name="arrow" size={16} /></button></> : <><p>Assistly is a concept customer support product that brings conversational assistance, a searchable help center, and clear support pathways into one calm workspace.</p><div className="project-features"><span>Responsive React interface</span><span>Flask + Gemini integration</span><span>Light & dark themes</span><span>Saved chat & transcript export</span></div><p className="modal-footnote">A portfolio demonstration with fictional store policies. Sample mode works without an API key. Live AI can be configured on the server; order systems and agent handoff are future integrations.</p></>}</section></div>}
+  </div>;
+}
